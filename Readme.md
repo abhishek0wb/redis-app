@@ -1,10 +1,102 @@
-🚀 AI Microservice Queueing SystemThis project implements a scalable, decoupled microservice architecture for handling computationally expensive, asynchronous tasks (AI summarization) without blocking the user-facing API. It demonstrates proficiency in Node.js (NestJS), Python, Redis, and Docker for containerization and orchestration.🎯 Architectural GoalsAsynchronous Processing: The API client receives an immediate response, while the time-consuming AI task runs in the background.Decoupling: Separate the responsibilities of API ingestion (NestJS) and heavy computation (Python) to maximize performance and scalability.Polyglot Communication: Enable two services written in different languages (TypeScript/Node.js and Python) to communicate reliably via a message broker.🧱 Architecture DiagramThe system is composed of three core services orchestrated by Docker Compose.🛠️ Technology StackComponentTechnologyRoleAPI Gateway (Producer)NestJS (TypeScript/Node.js)Receives client requests (REST API), validates the data, and pushes the job onto the message queue (LPUSH). It also listens for the completion status via Pub/Sub.Message BrokerRedisCentral communication hub, used both as a reliable Task Queue (job_queue List) and a non-blocking Result Channel (job_result Pub/Sub).AI Worker (Consumer)PythonPulls tasks off the queue (BRPOP), interacts with the Google Gemini API for AI summarization, and publishes the result back to Redis.OrchestrationDocker & Docker ComposeContainerizes all services and manages network communication, ensuring a portable, production-ready environment.⚙️ Communication Flow (The Asynchronous Loop)The entire process involves two distinct, non-blocking steps mediated by Redis:Job Submission (API $\rightarrow$ Queue):Client sends POST request to NestJS /process.NestJS immediately executes LPUSH job_queue with the text payload.NestJS returns {"status": "queued"} to the client (instantaneous).Job Processing & Notification (Worker $\rightarrow$ Listener):The Python Worker executes BRPOP job_queue, pulls the task, and calls the Gemini API.Python Worker receives the summary and executes PUBLISH job_result with the final JSON response.The NestJS Listener, which is subscribed to the job_result channel, receives the packet and logs the completion.🚀 Setup and RunPrerequisitesDocker and Docker Compose installed.A Google Gemini API Key.StepsClone the Repository (If applicable):Bashgit clone [your-repo-link]
-cd redis-app
-Create the .env file:In the project root directory, create a file named .env and paste your API key:# .env
-GEMINI_API_KEY="YOUR_ACTUAL_GEMINI_API_KEY"
-REDIS_HOST="redis" # Keep this as 'redis' for Docker network resolution
-(Note: This file is excluded from version control via .gitignore for security).Build and Run the System:This command builds the Node.js and Python images, creates the network, and starts all three containers (redis-broker, nest-api, and ai-worker).Bashdocker-compose up --build
-Execute the Test Request:Open a new terminal tab and run the following curl command. The terminal running docker-compose up will show the full processing loop across the services.Bashcurl -X POST http://localhost:3000/process \
-   -H "Content-Type: application/json" \
-   -d '{"text": "This is a long article about software engineering principles and the importance of using microservices for complex tasks."}'
-📈 ScalabilityThis architecture is horizontally scalable by design:API Gateway: To handle more incoming traffic, simply scale the number of nest-producer containers. They all point to the same Redis instance.Worker Pool: To process jobs faster, simply scale the number of ai-worker containers. Since the task is popped using BRPOP, Redis guarantees that each job is picked up by only one worker, ensuring high throughput and zero duplicated effort.
+# AI Microservice Queueing System
+
+A scalable microservice-based system for handling **computationally expensive AI tasks asynchronously** without blocking user-facing APIs.
+
+This project separates request handling from AI processing using Redis, allowing the API to respond instantly while heavy computation runs in the background.
+
+---
+
+## Problem
+
+AI tasks such as summarization are slow and resource-intensive.  
+Processing them synchronously leads to:
+
+- Slow API responses
+- Request timeouts
+- Poor scalability
+
+---
+
+## Solution
+
+This system uses:
+
+- Asynchronous job processing
+- Redis as a message queue and pub/sub broker
+- Independent microservices for API and AI computation
+
+The API immediately queues the task and returns a response, while processing happens separately.
+
+---
+
+## Architecture
+
+The system consists of three services:
+
+### API Gateway (NestJS – TypeScript)
+- Accepts client requests
+- Validates input
+- Pushes jobs to Redis
+- Listens for completion events
+
+### Redis (Message Broker)
+- Stores jobs in a queue
+- Publishes job completion events
+
+### AI Worker (Python)
+- Pulls jobs from Redis
+- Processes AI tasks using Google Gemini API
+- Publishes results back to Redis
+
+All services are containerized and managed using Docker Compose.
+
+---
+
+## Execution Flow
+
+1. Client sends a POST request to the API  
+2. API queues the job and responds with `status: queued`  
+3. Worker processes the job in the background  
+4. Result is published and consumed via Redis Pub/Sub  
+
+---
+
+## Tech Stack
+
+- NestJS (TypeScript)
+- Python
+- Redis
+- Docker & Docker Compose
+- Google Gemini API
+
+---
+
+## Setup
+
+Create a `.env` file in the project root:
+
+```env
+GEMINI_API_KEY=YOUR_GEMINI_API_KEY
+REDIS_HOST=redis
+```
+
+
+---
+
+
+## Build and run the services
+
+```
+docker-compose up --build
+```
+
+---
+
+
+## Test Request
+
+```
+curl -X POST http://localhost:3000/process \
+-H "Content-Type: application/json" \
+-d '{"text":"This is a long article about software engineering and microservices."}'
+```

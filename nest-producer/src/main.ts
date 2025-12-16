@@ -1,21 +1,18 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import Redis from 'ioredis'; // Import Redis
+import Redis from 'ioredis'; 
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // NEW: Create a subscriber client
 const redisSubscriber = new Redis({ 
     host: process.env.REDIS_HOST || 'localhost', 
     port: 6379 
   });  
-  // Subscribe to the channel
   redisSubscriber.subscribe('job_result', (err) => {
     if (err) console.error('Failed to subscribe: %s', err.message);
   });
 
-  // Listen for messages
   redisSubscriber.on('message', (channel, message) => {
     console.log(`🔔 NestJS Notification: Received result from Python!`);
     console.log(`Packet: ${message}`);
