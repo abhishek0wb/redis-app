@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  # 1. The Redis Message Broker/Database Service
+  redis:
+    image: redis:7-alpine
+    container_name: redis-broker
+    ports:
+      - "6379:6379"
+
+  # 2. The Python Worker Service (The AI Engine)
+  python-worker:
+    build:
+      context: ./python-worker
+      dockerfile: Dockerfile
+    container_name: ai-worker
+    depends_on:
+      - redis
+    # ADDED env_file HERE
+    env_file:
+      - .env
+    environment:
+      # These now load from the .env file specified above
+      REDIS_HOST: ${REDIS_HOST}
+      GEMINI_API_KEY: ${GEMINI_API_KEY} 
+
+  # 3. The NestJS Producer Service (The API Gateway)
+  nest-producer:
+    build:
+      context: ./nest-producer
+      dockerfile: Dockerfile
+    container_name: nest-api
+    ports:
+      - "3000:3000"
+    depends_on:
+      - redis
+    # ADDED env_file HERE
+    env_file:
+      - .env
+    environment:
+      # This now loads from the .env file specified above
+      REDIS_HOST: ${REDIS_HOST}
